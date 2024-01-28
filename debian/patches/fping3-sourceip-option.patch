@@ -1,0 +1,41 @@
+diff -urN zabbix-7.0.0alpha7.orig/src/libs/zbxicmpping/icmpping.c zabbix-7.0.0alpha7/src/libs/zbxicmpping/icmpping.c
+--- zabbix-7.0.0alpha7.orig/src/libs/zbxicmpping/icmpping.c	2023-10-20 15:58:34.762406039 +0300
++++ zabbix-7.0.0alpha7/src/libs/zbxicmpping/icmpping.c	2023-10-20 15:59:03.290569616 +0300
+@@ -75,36 +75,7 @@
+ 
+ static void	get_source_ip_option(const char *fping, const char **option, unsigned char *checked)
+ {
+-	FILE	*f;
+-	char	*p, tmp[MAX_STRING_LEN];
+-
+-	zbx_snprintf(tmp, sizeof(tmp), "%s -h 2>&1", fping);
+-
+-	zabbix_log(LOG_LEVEL_DEBUG, "executing %s", tmp);
+-
+-	if (NULL == (f = popen(tmp, "r")))
+-		return;
+-
+-	while (NULL != zbx_fgets(tmp, sizeof(tmp), f))
+-	{
+-		for (p = tmp; isspace(*p); p++)
+-			;
+-
+-		if ('-' == p[0] && 'I' == p[1] && (isspace(p[2]) || ',' == p[2]))
+-		{
+-			*option = "-I";
+-			continue;
+-		}
+-
+-		if ('-' == p[0] && 'S' == p[1] && (isspace(p[2]) || ',' == p[2]))
+-		{
+-			*option = "-S";
+-			break;
+-		}
+-	}
+-
+-	pclose(f);
+-
++	*option = "-S";
+ 	*checked = 1;
+ }
+ 

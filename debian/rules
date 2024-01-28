@@ -1,0 +1,270 @@
+#!/usr/bin/make -f
+
+%:
+	dh $@
+
+BUILD_FLAGS =\
+	--host=$(DEB_HOST_GNU_TYPE) \
+	--build=$(DEB_BUILD_GNU_TYPE) \
+	--prefix=/usr \
+	--sysconfdir=/etc/zabbix \
+	--libdir=/usr/lib/zabbix \
+	--enable-ipv6 \
+	--with-libpcre2 \
+	--with-openssl \
+	--with-ldap \
+	--with-net-snmp \
+	--with-openipmi \
+	--with-libcurl \
+	--with-unixodbc \
+	--with-libxml2 \
+	--with-libevent \
+	--with-ssh
+
+# dependencies for override_dh_auto_build
+BUILD_TARGETS =
+
+# dependencies for override_dh_install
+INSTALL_TARGETS =
+
+# dependencies for override_dh_installinit
+INSTALLINIT_TARGETS =
+
+# dependencies for override_dh_clean
+CLEAN_TARGETS =
+
+#
+# zabbix-agent
+#
+
+update_conf_agentd:
+	cp conf/zabbix_agentd.conf debian/conf/zabbix_agentd.conf
+
+installinit_agent:
+	dh_installinit -p zabbix-agent
+
+clean_agent: run_dh_clean
+	rm -f debian/conf/zabbix_agentd.conf
+
+BUILD_TARGETS += update_conf_agentd
+INSTALLINIT_TARGETS += installinit_agent
+CLEAN_TARGETS += clean_agent
+
+#
+# zabbix-agent2
+#
+
+installinit_agent2:
+	dh_installinit -p zabbix-agent2
+
+INSTALLINIT_TARGETS += installinit_agent2
+
+#
+# zabbix-web-service
+#
+
+
+installinit_web_service:
+	dh_installinit -p zabbix-web-service
+
+INSTALLINIT_TARGETS += installinit_web_service
+#
+# zabbix-java-gateway
+#
+
+update_conf_java_gateway:
+	mv src/zabbix_java/startup.sh debian/zabbix_java_gateway_startup
+	mv src/zabbix_java/shutdown.sh debian/zabbix_java_gateway_shutdown
+	mv src/zabbix_java/settings.sh debian/conf/zabbix_java_gateway.conf
+	mv src/zabbix_java/lib/logback.xml debian/conf/zabbix_java_gateway_logback.xml
+
+install_java_gateway: run_dh_install
+	rm debian/zabbix-java-gateway/usr/share/zabbix-java-gateway/lib/logback.xml
+	rm debian/zabbix-java-gateway/usr/share/zabbix-java-gateway/lib/logback-console.xml
+
+installinit_java_gateway:
+	dh_installinit -p zabbix-java-gateway
+
+clean_java_gateway: run_dh_clean
+	rm -f debian/conf/zabbix_java_gateway.conf
+	rm -f debian/conf/zabbix_java_gateway_logback.xml
+
+BUILD_TARGETS += update_conf_java_gateway
+INSTALL_TARGETS += install_java_gateway
+INSTALLINIT_TARGETS += installinit_java_gateway
+CLEAN_TARGETS += clean_java_gateway
+
+#
+# zabbix server
+#
+
+update_conf_server:
+	cp conf/zabbix_server.conf debian/conf/zabbix_server.conf
+
+installinit_server:
+	dh_installinit --no-start -p zabbix-server-mysql --name=zabbix-server
+	dh_installinit --no-start -p zabbix-server-pgsql --name=zabbix-server
+
+clean_server: run_dh_clean
+	rm -f debian/conf/zabbix_server.conf
+
+BUILD_TARGETS += update_conf_server
+INSTALLINIT_TARGETS += installinit_server
+CLEAN_TARGETS += clean_server
+
+#
+# zabbix-proxy
+#
+
+update_conf_proxy:
+	cp conf/zabbix_proxy.conf debian/conf/zabbix_proxy.conf
+
+installinit_proxy:
+	dh_installinit --no-start -p zabbix-proxy-mysql --name=zabbix-proxy
+	dh_installinit --no-start -p zabbix-proxy-pgsql --name=zabbix-proxy
+	dh_installinit --no-start -p zabbix-proxy-sqlite3 --name=zabbix-proxy
+
+clean_proxy: run_dh_clean
+	rm -f debian/conf/zabbix_proxy.conf
+
+BUILD_TARGETS += update_conf_proxy
+INSTALLINIT_TARGETS += installinit_proxy
+CLEAN_TARGETS += clean_proxy
+
+#
+# zabbix frontend
+#
+
+install_frontend: run_dh_install
+	find debian/zabbix-frontend-php/usr/share/zabbix -name .htaccess | xargs rm -f
+	find debian/zabbix-frontend-php/usr/share/zabbix/locale -name '*.po' | xargs rm -f
+	find debian/zabbix-frontend-php/usr/share/zabbix/locale -name '*.sh' | xargs rm -f
+	rm -f debian/zabbix-frontend-php/usr/share/zabbix/assets/fonts/DejaVuSans.ttf
+	sed -i -r "s/(define\(.*_FONT_NAME.*)DejaVuSans/\1graphfont/" \
+		debian/zabbix-frontend-php/usr/share/zabbix/include/defines.inc.php
+
+INSTALL_TARGETS += install_frontend
+
+#
+# clean
+#
+
+override_dh_clean: run_dh_clean $(CLEAN_TARGETS)
+
+run_dh_clean:
+	dh_clean
+
+#
+# configure
+#
+
+override_dh_auto_configure: configure_with_sqlite3 configure_with_pgsql configure_with_mysql
+
+define configure_with
+	mkdir -p $(CURDIR)/debian/tmp.build-$(1)
+	tar -cSf - --exclude ./bin --exclude ./build --exclude ./ui --exclude ./debian . \
+		| tar -xSpf - -C $(CURDIR)/debian/tmp.build-$(1) && \
+	cat $(CURDIR)/database/$(1)/schema.sql > $(CURDIR)/database/$(1)/server.sql && \
+	cat $(CURDIR)/database/$(1)/images.sql >> $(CURDIR)/database/$(1)/server.sql && \
+	cat $(CURDIR)/database/$(1)/data.sql >> $(CURDIR)/database/$(1)/server.sql && \
+	mv  $(CURDIR)/database/$(1)/schema.sql $(CURDIR)/database/$(1)/proxy.sql
+	dh_auto_configure --sourcedirectory=$(CURDIR)/debian/tmp.build-$(1) -- $(BUILD_FLAGS) $(2) --with-$(1)
+endef
+
+configure_with_sqlite3:
+	$(call configure_with,sqlite3,--enable-agent --with-libmodbus --enable-agent2 --enable-webservice --enable-java --enable-proxy)
+
+configure_with_pgsql:
+	$(call configure_with,postgresql,--enable-server --enable-proxy)
+	mv $(CURDIR)/database/postgresql/timescaledb/schema.sql $(CURDIR)/database/postgresql/timescaledb.sql
+
+configure_with_mysql:
+	$(call configure_with,mysql,--enable-server --enable-proxy)
+
+#
+# build
+#
+
+override_dh_auto_build: $(BUILD_TARGETS) build_with_sqlite build_with_pgsql build_with_mysql
+
+define build_with
+	cd $(CURDIR)/debian/tmp.build-$(1) && make -j32 \
+		EXTERNAL_SCRIPTS_PATH=/usr/lib/zabbix/externalscripts \
+		ALERT_SCRIPTS_PATH=/usr/lib/zabbix/alertscripts \
+	&& cd -
+endef
+
+build_with_sqlite:
+	$(call build_with,sqlite3)
+
+build_with_pgsql:
+	$(call build_with,postgresql)
+
+build_with_mysql:
+	$(call build_with,mysql)
+
+#
+# install
+#
+
+override_dh_install: run_dh_install $(INSTALL_TARGETS)
+
+run_dh_install:
+	dh_install
+	if [ -d "debian/zabbix-sql-scripts/" ]; then find debian/zabbix-sql-scripts/ -name "Makefile*" -exec rm {} \; ; fi
+
+override_dh_installinit: $(INSTALLINIT_TARGETS)
+
+override_dh_compress:
+	gzip debian/zabbix-agent/usr/share/doc/zabbix-agent/changelog && \
+	gzip debian/zabbix-sender/usr/share/doc/zabbix-sender/changelog && \
+	gzip debian/zabbix-get/usr/share/doc/zabbix-get/changelog && \
+	gzip debian/zabbix-agent2/usr/share/doc/zabbix-agent2/changelog && \
+	gzip debian/zabbix-server-mysql/usr/share/doc/zabbix-server-mysql/changelog && \
+	gzip debian/zabbix-server-pgsql/usr/share/doc/zabbix-server-pgsql/changelog && \
+	gzip debian/zabbix-js/usr/share/doc/zabbix-js/changelog && \
+	gzip debian/zabbix-frontend-php/usr/share/doc/zabbix-frontend-php/changelog && \
+	gzip debian/zabbix-apache-conf/usr/share/doc/zabbix-apache-conf/changelog && \
+	gzip debian/zabbix-nginx-conf/usr/share/doc/zabbix-nginx-conf/changelog && \
+	gzip debian/zabbix-proxy-mysql/usr/share/doc/zabbix-proxy-mysql/changelog && \
+	gzip debian/zabbix-proxy-pgsql/usr/share/doc/zabbix-proxy-pgsql/changelog && \
+	gzip debian/zabbix-proxy-sqlite3/usr/share/doc/zabbix-proxy-sqlite3/changelog && \
+	gzip debian/zabbix-java-gateway/usr/share/doc/zabbix-java-gateway/changelog && \
+	gzip debian/zabbix-web-service/usr/share/doc/zabbix-web-service/changelog && \
+	gzip debian/zabbix-sql-scripts/usr/share/doc/zabbix-sql-scripts/changelog && \
+	gzip debian/zabbix-agent2/usr/share/doc/zabbix-agent2/changelog.Debian && \
+	gzip debian/zabbix-agent2/usr/share/man/man8/zabbix_agent2.8 && \
+	gzip debian/zabbix-server-mysql/usr/share/doc/zabbix-server-mysql/changelog.Debian && \
+	gzip debian/zabbix-server-mysql/usr/share/man/man8/zabbix_server.8 && \
+	gzip debian/zabbix-server-pgsql/usr/share/doc/zabbix-server-pgsql/changelog.Debian && \
+	gzip debian/zabbix-server-pgsql/usr/share/man/man8/zabbix_server.8 && \
+	gzip debian/zabbix-js/usr/share/doc/zabbix-js/changelog.Debian && \
+	gzip debian/zabbix-frontend-php/usr/share/doc/zabbix-frontend-php/changelog.Debian && \
+	gzip debian/zabbix-apache-conf/usr/share/doc/zabbix-apache-conf/changelog.Debian && \
+	gzip debian/zabbix-nginx-conf/usr/share/doc/zabbix-nginx-conf/changelog.Debian && \
+	gzip debian/zabbix-proxy-mysql/usr/share/doc/zabbix-proxy-mysql/changelog.Debian && \
+	gzip debian/zabbix-proxy-mysql/usr/share/man/man8/zabbix_proxy.8 && \
+	gzip debian/zabbix-proxy-pgsql/usr/share/doc/zabbix-proxy-pgsql/changelog.Debian && \
+	gzip debian/zabbix-proxy-pgsql/usr/share/man/man8/zabbix_proxy.8 && \
+	gzip debian/zabbix-proxy-sqlite3/usr/share/doc/zabbix-proxy-sqlite3/changelog.Debian && \
+	gzip debian/zabbix-proxy-sqlite3/usr/share/man/man8/zabbix_proxy.8 && \
+	gzip debian/zabbix-java-gateway/usr/share/doc/zabbix-java-gateway/changelog.Debian && \
+	gzip debian/zabbix-web-service/usr/share/doc/zabbix-web-service/changelog.Debian && \
+	gzip debian/zabbix-web-service/usr/share/man/man8/zabbix_web_service.8 && \
+	gzip debian/zabbix-sql-scripts/usr/share/zabbix-sql-scripts/mysql/server.sql && \
+	gzip debian/zabbix-sql-scripts/usr/share/zabbix-sql-scripts/postgresql/server.sql && \
+	gzip debian/zabbix-sql-scripts/usr/share/doc/zabbix-sql-scripts/changelog.Debian && \
+	gzip debian/zabbix-agent/usr/share/doc/zabbix-agent/changelog.Debian && \
+	gzip debian/zabbix-agent/usr/share/man/man8/zabbix_agentd.8 && \
+	gzip debian/zabbix-sender/usr/share/doc/zabbix-sender/changelog.Debian && \
+	gzip debian/zabbix-sender/usr/share/man/man1/zabbix_sender.1 && \
+	gzip debian/zabbix-get/usr/share/doc/zabbix-get/changelog.Debian && \
+	gzip debian/zabbix-get/usr/share/man/man1/zabbix_get.1
+
+override_dh_fixperms:
+	dh_fixperms
+	chmod 600 debian/zabbix-server-mysql/etc/zabbix/zabbix_server.conf
+	chmod 600 debian/zabbix-server-pgsql/etc/zabbix/zabbix_server.conf
+	chmod 600 debian/zabbix-proxy-mysql/etc/zabbix/zabbix_proxy.conf
+	chmod 600 debian/zabbix-proxy-pgsql/etc/zabbix/zabbix_proxy.conf
+

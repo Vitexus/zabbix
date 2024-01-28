@@ -1,0 +1,11 @@
+debian/tmp.build-sqlite3/src/go/bin/zabbix_agent2 usr/sbin
+src/go/conf/zabbix_agent2.conf etc/zabbix
+src/go/conf/zabbix_agent2.d/plugins.d/ceph.conf      etc/zabbix/zabbix_agent2.d/plugins.d
+src/go/conf/zabbix_agent2.d/plugins.d/docker.conf    etc/zabbix/zabbix_agent2.d/plugins.d
+src/go/conf/zabbix_agent2.d/plugins.d/memcached.conf etc/zabbix/zabbix_agent2.d/plugins.d
+src/go/conf/zabbix_agent2.d/plugins.d/mysql.conf     etc/zabbix/zabbix_agent2.d/plugins.d
+src/go/conf/zabbix_agent2.d/plugins.d/oracle.conf    etc/zabbix/zabbix_agent2.d/plugins.d
+src/go/conf/zabbix_agent2.d/plugins.d/redis.conf     etc/zabbix/zabbix_agent2.d/plugins.d
+src/go/conf/zabbix_agent2.d/plugins.d/smart.conf     etc/zabbix/zabbix_agent2.d/plugins.d
+src/go/conf/zabbix_agent2.d/plugins.d/modbus.conf    etc/zabbix/zabbix_agent2.d/plugins.d
+src/go/conf/zabbix_agent2.d/plugins.d/mqtt.conf      etc/zabbix/zabbix_agent2.d/plugins.d

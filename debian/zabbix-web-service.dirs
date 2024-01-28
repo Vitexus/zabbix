@@ -1,0 +1,4 @@
+usr/sbin
+etc/zabbix
+etc/logrotate.d
+var/log/zabbix

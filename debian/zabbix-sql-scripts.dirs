@@ -1,0 +1,3 @@
+usr/share/zabbix-sql-scripts/mysql
+usr/share/zabbix-sql-scripts/postgresql
+usr/share/zabbix-sql-scripts/sqlite3

@@ -1,0 +1,2 @@
+debian/tmp.build-sqlite3/src/zabbix_proxy/zabbix_proxy usr/sbin
+debian/conf/zabbix_proxy.conf etc/zabbix

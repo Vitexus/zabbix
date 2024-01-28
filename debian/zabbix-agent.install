@@ -1,0 +1,3 @@
+debian/tmp.build-sqlite3/src/zabbix_agent/zabbix_agentd usr/sbin
+debian/conf/zabbix_agentd.conf etc/zabbix
+conf/zabbix_agentd/userparameter_mysql.conf usr/share/doc/zabbix-agent

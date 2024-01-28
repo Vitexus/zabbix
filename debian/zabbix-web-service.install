@@ -1,0 +1,3 @@
+debian/tmp.build-sqlite3/src/go/bin/zabbix_web_service usr/sbin
+src/go/conf/zabbix_web_service.conf etc/zabbix
+
